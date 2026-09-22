@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de Tareas — Finanzas KC</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --charcoal:#1E1E1E;
+    --charcoal-2:#2A2A28;
+    --cream:#F2F1EC;
+    --cream-2:#EAE7DD;
+    --gold:#C9A227;
+    --gold-soft:#B8975A;
+    --green:#4F7A5A;
+    --green-soft:#E4ECE4;
+    --amber:#B8863B;
+    --amber-soft:#F1E6D2;
+    --red:#8C3B2E;
+    --red-soft:#F0E0DB;
+    --line:#D8D4C6;
+    --muted:#8a8a80;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--charcoal);
+    font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+    min-height:100vh;
+  }
+  .app{max-width:1180px;margin:0 auto;padding:36px 28px 80px;}
+
+  .top{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:1px solid var(--charcoal);
+    padding-bottom:18px;margin-bottom:30px;
+    gap:20px;flex-wrap:wrap;
+  }
+  .top h1{font-size:28px;font-weight:600;margin:0 0 4px;letter-spacing:.2px;}
+  .top p{margin:0;font-size:14.5px;color:#5b584f;font-style:italic;}
+  .nav{display:flex;gap:6px;font-family:Georgia,serif;}
+  .nav button{
+    background:none;border:1px solid var(--charcoal);color:var(--charcoal);
+    padding:8px 16px;font-size:14px;cursor:pointer;border-radius:2px;font-family:inherit;
+  }
+  .nav button.active{background:var(--charcoal);color:var(--cream);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;}
+  .mundo-card{
+    background:#fff;border:1px solid var(--line);border-radius:3px;
+    padding:20px 18px;cursor:pointer;position:relative;
+    transition:border-color .15s ease, transform .15s ease;
+  }
+  .mundo-card:hover{border-color:var(--gold-soft);transform:translateY(-2px);}
+  .mundo-card.closed{background:var(--cream-2);}
+  .mundo-card .kicker{font-size:11.5px;color:var(--gold-soft);margin-bottom:8px;}
+  .mundo-card h3{margin:0 0 12px;font-size:19px;font-weight:600;}
+  .bar-track{height:5px;background:var(--cream-2);border-radius:3px;overflow:hidden;margin-bottom:10px;}
+  .bar-fill{height:100%;background:var(--green);}
+  .mundo-card .meta{font-size:13px;color:#6a675d;display:flex;justify-content:space-between;}
+  .closed-tag{
+    position:absolute;top:16px;right:16px;font-size:11px;color:var(--gold-soft);
+    border:1px solid var(--gold-soft);padding:2px 8px;border-radius:10px;
+  }
+  .mundo-card.add-mundo{
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    border:1.5px dashed var(--gold-soft);background:none;color:var(--gold-soft);
+    min-height:132px;
+  }
+  .mundo-card.add-mundo .plus{font-size:26px;line-height:1;margin-bottom:6px;}
+  .mundo-card.add-mundo:hover{background:#fff;}
+
+  .person-input-row{display:flex;gap:8px;}
+  .person-input-row input{flex:1;}
+  .person-input-row button{white-space:nowrap;}
+  .chip-x{margin-left:6px;cursor:pointer;font-weight:600;}
+
+  .network-view{display:none;}
+  .network-view.active{display:block;}
+  .back-link{
+    background:none;border:none;color:var(--charcoal);font-family:inherit;
+    font-size:14px;cursor:pointer;padding:0;margin-bottom:18px;text-decoration:underline;
+  }
+  .network-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:14px;}
+  .network-header h2{margin:0;font-size:24px;}
+  .network-header .sub{font-size:13.5px;color:#6a675d;margin-top:4px;}
+  .net-actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .legend{display:flex;gap:18px;font-size:12px;color:#6a675d;margin-top:10px;flex-wrap:wrap;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend .swatch{width:16px;height:0;border-top:2px solid;}
+  .legend .swatch.seq{border-color:var(--charcoal);}
+  .legend .swatch.par{border-color:var(--muted);border-top-style:dashed;}
+  .legend .lockbox{width:11px;height:11px;border:1.4px dashed var(--muted);background:#f4f2ec;display:inline-block;}
+
+  .btn{
+    font-family:inherit;font-size:13.5px;border-radius:2px;cursor:pointer;
+    padding:9px 16px;border:1px solid var(--charcoal);background:none;color:var(--charcoal);
+  }
+  .btn.solid{background:var(--charcoal);color:var(--cream);}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:var(--charcoal);}
+  .btn.ghost{border-color:var(--line);color:#6a675d;}
+  .btn:disabled{opacity:.35;cursor:not-allowed;}
+
+  .canvas-wrap{
+    position:relative;width:100%;height:560px;margin-top:18px;
+    border:1px solid var(--line);border-radius:4px;overflow:auto;background:#fff;
+  }
+  #canvasInner{position:relative;}
+  #canvasInner svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+
+  .hub{
+    position:absolute;transform:translate(-50%,-50%);
+    width:140px;height:140px;border-radius:50%;
+    background:var(--charcoal);color:var(--cream);
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    font-size:14.5px;font-weight:600;padding:10px;line-height:1.25;
+    border:3px solid var(--charcoal);z-index:3;
+  }
+  .hub.closed-hub{background:var(--gold);color:var(--charcoal);border-color:var(--gold-soft);}
+
+  .node{
+    position:absolute;width:132px;
+    background:#fff;border:1.5px solid var(--charcoal);border-radius:3px;
+    padding:10px 11px;font-size:12.5px;cursor:grab;z-index:3;
+    transform:translate(-50%,-50%);
+    transition:box-shadow .15s ease;
+    touch-action:none;user-select:none;
+  }
+  .node:hover{box-shadow:0 3px 10px rgba(0,0,0,0.12);}
+  .node.dragging{box-shadow:0 6px 18px rgba(0,0,0,0.22);z-index:5;cursor:grabbing;}
+  .node .t-title{font-weight:600;margin-bottom:6px;line-height:1.3;}
+  .node .t-people{font-size:11px;color:#6a675d;margin-bottom:6px;}
+  .node .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;}
+  .node.status-pendiente{border-color:var(--red-soft);}
+  .node.status-progreso{border-color:var(--amber);}
+  .node.status-terminada{border-color:var(--green);background:var(--green-soft);}
+  .node.locked{border-style:dashed;border-color:var(--muted);background:repeating-linear-gradient(135deg,#fff,#fff 6px,#f2f0e9 6px,#f2f0e9 12px);opacity:.75;cursor:not-allowed;}
+  .node.locked .t-title{color:#6a675d;}
+  .lock-tag{font-size:10.5px;color:var(--muted);margin-top:4px;font-style:italic;}
+  .moved-tag{font-size:10px;color:var(--gold-soft);margin-top:3px;}
+
+  .mini-add{
+    position:absolute;width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;cursor:pointer;background:#fff;z-index:4;transform:translate(-50%,-50%);
+  }
+  .mini-add.seq{border:1.4px solid var(--gold-soft);color:var(--gold-soft);}
+  .mini-add.par{border:1.4px dashed var(--muted);color:var(--muted);}
+
+  .add-node-btn{
+    position:absolute;width:44px;height:44px;border-radius:50%;
+    background:#fff;border:1.5px dashed var(--gold-soft);color:var(--gold-soft);
+    font-size:22px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transform:translate(-50%,-50%);z-index:3;
+  }
+
+  .overlay{display:none;position:fixed;inset:0;background:rgba(30,30,30,0.42);align-items:center;justify-content:center;z-index:20;}
+  .overlay.active{display:flex;}
+  .modal{background:var(--cream);width:400px;max-width:92vw;border:1px solid var(--charcoal);border-radius:3px;padding:26px 26px 22px;}
+  .modal h3{margin:0 0 4px;font-size:19px;}
+  .modal .rel-note{font-size:12px;color:#6a675d;margin:0 0 8px;}
+  .modal .field{margin-top:16px;}
+  .modal label{display:block;font-size:12px;color:#6a675d;margin-bottom:6px;}
+  .modal input[type=text]{
+    width:100%;font-family:inherit;font-size:14.5px;padding:9px 10px;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--charcoal);
+  }
+  .modal select{
+    font-family:inherit;font-size:14.5px;padding:9px 10px;
+    border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--charcoal);width:100%;
+  }
+  .modal input:disabled{background:var(--cream-2);color:#8a8a80;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{font-size:12.5px;border:1px solid var(--line);border-radius:14px;padding:5px 12px;cursor:pointer;background:#fff;color:#6a675d;}
+  .chip.on{background:var(--charcoal);color:var(--cream);border-color:var(--charcoal);}
+  .chip.disabled{pointer-events:none;opacity:.6;}
+  .status-row{display:flex;gap:8px;}
+  .status-opt{flex:1;text-align:center;font-size:12.5px;padding:8px 6px;border:1px solid var(--line);border-radius:2px;cursor:pointer;background:#fff;color:#6a675d;}
+  .status-opt.on-pendiente{background:var(--red-soft);border-color:var(--red);color:var(--red);}
+  .status-opt.on-progreso{background:var(--amber-soft);border-color:var(--amber);color:var(--amber);}
+  .status-opt.on-terminada{background:var(--green-soft);border-color:var(--green);color:var(--green);}
+  .status-row.disabled .status-opt{pointer-events:none;opacity:.5;}
+  .lock-note{background:var(--red-soft);color:var(--red);font-size:12.5px;padding:9px 11px;border-radius:2px;margin-top:16px;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:22px;}
+  .link-danger{background:none;border:none;font-family:inherit;color:var(--red);font-size:13px;cursor:pointer;text-decoration:underline;padding:0;}
+
+  .summary-view{display:none;}
+  .summary-view.active{display:block;}
+  .sub-tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .sub-tabs button{font-family:inherit;font-size:13px;border:1px solid var(--line);background:#fff;padding:7px 14px;border-radius:14px;cursor:pointer;color:#6a675d;}
+  .sub-tabs button.active{background:var(--charcoal);color:var(--cream);border-color:var(--charcoal);}
+  table{width:100%;border-collapse:collapse;background:#fff;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13.5px;}
+  th{font-size:11.5px;color:#6a675d;font-weight:600;border-bottom:1px solid var(--charcoal);}
+  .status-badge{font-size:11px;padding:2px 9px;border-radius:10px;}
+  .b-pendiente{background:var(--red-soft);color:var(--red);}
+  .b-progreso{background:var(--amber-soft);color:var(--amber);}
+  .b-terminada{background:var(--green-soft);color:var(--green);}
+  .b-locked{background:var(--cream-2);color:var(--muted);}
+
+  #loginScreen{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:70vh;text-align:center;gap:18px;
+  }
+  #loginScreen p{max-width:380px;color:#5b584f;font-size:14.5px;}
+  #deniedScreen{display:none;max-width:420px;margin:80px auto;text-align:center;color:#6a675d;font-size:14.5px;}
+</style>
+</head>
+<body>
+<div id="loginScreen">
+  <h1 style="font-size:26px;margin:0;">Mapa de Tareas — Finanzas KC</h1>
+  <p>Panel de edición — acceso exclusivo. Ingresa con tu cuenta de Google.</p>
+  <div id="gsiButton"></div>
+  <p id="loginError" style="color:var(--red);display:none;"></p>
+</div>
+<div id="deniedScreen">
+  <p id="deniedMsg">No tienes acceso a este panel.</p>
+</div>
+<div class="app" id="editorApp" style="display:none;">
+
+  <div class="top">
+    <div>
+      <h1>Mapa de Tareas — Finanzas KC</h1>
+      <p>Cada mundo es un área que administras como CFO. Arrastra las tareas para ordenar el mapa a tu gusto.</p>
+    </div>
+    <div class="nav">
+      <button id="navMundos" class="active">Mundos</button>
+      <button id="navResumen">Resumen</button>
+      <button id="navParametros">Parámetros</button>
+    </div>
+  </div>
+
+  <div id="viewMundos">
+    <div class="vista-como-row" style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+      <label style="font-size:13px;color:#6a675d;">Vista como (simulado):</label>
+      <select id="vistaComoSelect" style="font-family:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--line);border-radius:2px;background:#fff;"></select>
+    </div>
+    <div id="vistaComoBanner" style="display:none;background:var(--amber-soft);color:var(--amber);border-radius:2px;padding:10px 14px;font-size:13px;margin-bottom:16px;"></div>
+    <div class="grid" id="mundoGrid"></div>
+  </div>
+
+  <div class="overlay" id="mundoOverlay">
+    <div class="modal">
+      <h3>Nuevo mundo</h3>
+      <div class="rel-note">Un mundo es un área que administras — se convierte en el nodo central de su propia red.</div>
+      <div class="field">
+        <label>Nombre del mundo</label>
+        <input type="text" id="mundoNameInput" placeholder="Ej: Impuestos">
+      </div>
+      <div class="field">
+        <label>Personas que participan en este mundo</label>
+        <div class="person-input-row">
+          <input type="text" id="personInput" placeholder="Nombre y Enter">
+          <button class="btn" id="addPersonBtn">Agregar</button>
+        </div>
+        <div class="chip-row" id="mundoPeopleChips" style="margin-top:10px;"></div>
+      </div>
+      <div class="modal-actions">
+        <div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" id="cancelMundoBtn">Cancelar</button>
+          <button class="btn solid" id="saveMundoBtn">Crear mundo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="network-view" id="viewNetwork">
+    <button class="back-link" id="backBtn">← Volver a mundos</button>
+    <div class="network-header">
+      <div>
+        <h2 id="netTitle"></h2>
+        <div class="sub" id="netSub"></div>
+        <div class="legend">
+          <span><span class="swatch seq"></span> Depende de la tarea anterior</span>
+          <span><span class="swatch par"></span> Rama paralela (independiente)</span>
+          <span><span class="lockbox"></span> Bloqueada hasta completar su antecesora</span>
+        </div>
+      </div>
+      <div class="net-actions">
+        <button class="btn ghost" id="resetLayoutBtn">Reordenar automáticamente</button>
+        <button class="btn" id="addTaskBtn">+ Agregar tarea al mundo</button>
+        <button class="btn gold" id="closeNetBtn">Cerrar red</button>
+      </div>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <div id="canvasInner"><svg id="linesSvg"></svg></div>
+    </div>
+  </div>
+
+  <div class="summary-view" id="viewResumen">
+    <div class="sub-tabs">
+      <button class="sub-tab active" data-tab="mundo">Por mundo</button>
+      <button class="sub-tab" data-tab="tarea">Por tarea</button>
+      <button class="sub-tab" data-tab="persona">Por persona</button>
+    </div>
+    <div id="summaryContent"></div>
+  </div>
+
+  <div class="summary-view" id="viewParametros">
+    <p style="font-size:13.5px;color:#6a675d;margin-top:0;max-width:640px;">
+      Esta lista alimenta el desplegable de "Involucra a" dentro de cada tarea, sin importar el mundo en el que estés.
+      Solo se aceptan correos <strong>@kitchencenter.cl</strong> — así el aviso de tarea asignada llega únicamente a personas con dominio KC.
+      Más adelante esto puede leerse directo desde una hoja de Google Sheets, igual que el resto de tus paneles.
+    </p>
+    <div class="person-input-row" style="max-width:640px;margin-bottom:18px;">
+      <input type="text" id="paramPersonaInput" placeholder="Nombre de la persona">
+      <input type="text" id="paramAreaInput" placeholder="Área natural">
+      <input type="text" id="paramCorreoInput" placeholder="nombre@kitchencenter.cl">
+      <button class="btn" id="addParamBtn">Agregar</button>
+    </div>
+    <table id="paramTable">
+      <thead><tr><th>Persona</th><th>Área natural</th><th>Correo</th><th></th></tr></thead>
+      <tbody id="paramTableBody"></tbody>
+    </table>
+
+    <h3 style="margin-top:34px;font-size:17px;">Notificaciones (simulado)</h3>
+    <p style="font-size:12.5px;color:#6a675d;margin-top:0;max-width:640px;">
+      Aquí verías el registro de los correos que se habrían enviado al asignar tareas. En esta maqueta no se envía nada de verdad — se necesita un backend (Apps Script + GmailApp, como en tus otros paneles) para que sea real.
+    </p>
+    <table id="notifTable">
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Persona</th><th>Correo</th><th>Tarea</th><th>Mundo</th><th>Detalle</th></tr></thead>
+      <tbody id="notifTableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="overlay" id="taskOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Tarea</h3>
+    <div class="rel-note" id="relNote"></div>
+    <div id="lockNoteHolder"></div>
+    <div class="field">
+      <label>Nombre de la tarea</label>
+      <input type="text" id="taskNameInput" placeholder="Ej: Conciliar cuenta corriente USD">
+    </div>
+    <div class="field">
+      <label>Involucra a</label>
+      <div class="person-input-row">
+        <select id="personSelectModal"><option value="">Elegir de parámetros…</option></select>
+      </div>
+      <div class="chip-row" id="peopleChips" style="margin-top:10px;"></div>
+    </div>
+    <div class="field">
+      <label>Estado</label>
+      <div class="status-row" id="statusRow">
+        <div class="status-opt" data-s="pendiente">Pendiente</div>
+        <div class="status-opt" data-s="progreso">En curso</div>
+        <div class="status-opt" data-s="terminada">Terminada</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="link-danger" id="deleteTaskBtn">Eliminar tarea</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" id="cancelModalBtn">Cancelar</button>
+        <button class="btn solid" id="saveTaskBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// parentId: null = tarea principal (cuelga directo del mundo)
+// tipo: 'secuencial' (bloqueada hasta que la tarea padre esté "terminada") | 'paralelo' (no bloquea ni se bloquea)
+// customOffset: {dx,dy} guarda la posición manual respecto al centro del mundo (hub), si el usuario la arrastró
+let state = {
+  parametros: [
+    {persona:'Pamela Vásquez', area:'Tesorería', correo:'pamela.vasquez@kitchencenter.cl'},
+    {persona:'Rodrigo Muñoz', area:'Tesorería', correo:'rodrigo.munoz@kitchencenter.cl'},
+    {persona:'Carolina Jara', area:'Contabilidad', correo:'carolina.jara@kitchencenter.cl'},
+    {persona:'Francisca Garcés', area:'Contabilidad', correo:'francisca.garces@kitchencenter.cl'},
+    {persona:'Rita González', area:'Remuneraciones', correo:'rita.gonzalez@kitchencenter.cl'},
+    {persona:'Yahaira Arriagada', area:'Auditoría / Inventario', correo:'yahaira.arriagada@kitchencenter.cl'},
+    {persona:'Marcelo', area:'Auditoría / Inventario', correo:'marcelo@kitchencenter.cl'},
+    {persona:'Marco Fernández', area:'TI / Procesos', correo:'marco.fernandez@kitchencenter.cl'},
+  ],
+  notificaciones: [],
+  mundos: [
+    {
+      id:'tesoreria', nombre:'Tesorería',
+      personas:['Pamela Vásquez','Rodrigo Muñoz'],
+      cerrada:false,
+      tareas:[
+        {id:1,titulo:'Conciliar cuentas USD/CLP',personas:['Pamela Vásquez'],estado:'terminada',parentId:null,tipo:null,customOffset:null},
+        {id:2,titulo:'Revisar cobertura forward mensual',personas:['Rodrigo Muñoz'],estado:'progreso',parentId:null,tipo:null,customOffset:null},
+        {id:3,titulo:'Programar pago a proveedores críticos',personas:['Pamela Vásquez','Rodrigo Muñoz'],estado:'pendiente',parentId:null,tipo:null,customOffset:null},
+        {id:20,titulo:'Enviar comprobante de cobertura a matriz',personas:['Rodrigo Muñoz'],estado:'pendiente',parentId:2,tipo:'secuencial',customOffset:null},
+        {id:21,titulo:'Cotizar spread con banco alternativo',personas:['Rodrigo Muñoz'],estado:'pendiente',parentId:2,tipo:'paralelo',customOffset:null},
+      ]
+    },
+    {
+      id:'contabilidad', nombre:'Contabilidad',
+      personas:['Carolina Jara','Francisca Garcés'],
+      cerrada:false,
+      tareas:[
+        {id:4,titulo:'Cierre contable del mes',personas:['Carolina Jara'],estado:'progreso',parentId:null,tipo:null,customOffset:null},
+        {id:5,titulo:'Provisión de gastos no facturados',personas:['Francisca Garcés'],estado:'pendiente',parentId:null,tipo:null,customOffset:null},
+        {id:6,titulo:'Revisión de otros ajustes no operacionales',personas:['Carolina Jara','Francisca Garcés'],estado:'pendiente',parentId:null,tipo:null,customOffset:null},
+        {id:7,titulo:'Reporte a matriz',personas:['Carolina Jara'],estado:'terminada',parentId:null,tipo:null,customOffset:null},
+        {id:22,titulo:'Enviar cierre consolidado a matriz',personas:['Carolina Jara'],estado:'pendiente',parentId:4,tipo:'secuencial',customOffset:null},
+        {id:23,titulo:'Coordinar con auditoría externa',personas:['Francisca Garcés'],estado:'progreso',parentId:4,tipo:'paralelo',customOffset:null},
+      ]
+    },
+    {
+      id:'remuneraciones', nombre:'Remuneraciones',
+      personas:['Rita González'],
+      cerrada:false,
+      tareas:[
+        {id:8,titulo:'Procesar liquidaciones del mes',personas:['Rita González'],estado:'terminada',parentId:null,tipo:null,customOffset:null},
+        {id:9,titulo:'Cálculo de bonos trimestrales',personas:['Rita González'],estado:'pendiente',parentId:null,tipo:null,customOffset:null},
+      ]
+    },
+    {
+      id:'auditoria', nombre:'Auditoría / Inventario',
+      personas:['Yahaira Arriagada','Marcelo'],
+      cerrada:false,
+      tareas:[
+        {id:10,titulo:'Toma de inventario tienda Ñuñoa',personas:['Marcelo'],estado:'progreso',parentId:null,tipo:null,customOffset:null},
+        {id:11,titulo:'Revisión de mermas trimestrales',personas:['Yahaira Arriagada'],estado:'pendiente',parentId:null,tipo:null,customOffset:null},
+        {id:12,titulo:'Auditoría interna caja chica',personas:['Yahaira Arriagada','Marcelo'],estado:'pendiente',parentId:null,tipo:null,customOffset:null},
+        {id:24,titulo:'Ajustar inventario en SAP',personas:['Marcelo'],estado:'pendiente',parentId:10,tipo:'secuencial',customOffset:null},
+      ]
+    },
+    {
+      id:'ti', nombre:'TI / Procesos',
+      personas:['Marco Fernández'],
+      cerrada:true,
+      tareas:[
+        {id:13,titulo:'Migrar reporte a Apps Script',personas:['Marco Fernández'],estado:'terminada',parentId:null,tipo:null,customOffset:null},
+        {id:14,titulo:'Actualizar permisos dashboard SAP',personas:['Marco Fernández'],estado:'terminada',parentId:null,tipo:null,customOffset:null},
+      ]
+    },
+  ]
+};
+
+let currentMundoId = null;
+let editingTaskId = null;
+let pendingNewTask = null;
+let modalPeopleSelected = [];
+let originalPeopleSnapshot = [];
+let originalStatusSnapshot = 'pendiente';
+let modalStatus = 'pendiente';
+
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const KC_DOMAIN = '@kitchencenter.cl';
+
+// Pega aquí la URL de tu Web App de Apps Script una vez desplegada (ver backend_apps_script.gs).
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4JxNoPOeyIf8zI0zr-UNy5LwaoP18XVk5KYn_c0CASPJjvI8sdvWA34IiWXMonymqvg/exec';
+
+// Mismo Client ID que el portal del equipo — el backend decide si el correo es admin o no.
+const CLIENT_ID = '912245260213-c8bl4mlbtrub0hosmmoma86k5mvs40mo.apps.googleusercontent.com';
+
+let sessionToken = null;
+
+function callBackend(action, payload){
+  if(!APPS_SCRIPT_URL) return Promise.resolve(null);
+  return fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action, token: sessionToken, ...payload })
+  }).then(r=>r.json()).catch(err=>{
+    console.warn('No se pudo contactar al backend, quedó solo guardado localmente:', err);
+    return null;
+  });
+}
+
+function loadParametrosFromBackend(){
+  if(!APPS_SCRIPT_URL || !sessionToken) return Promise.resolve();
+  return fetch(`${APPS_SCRIPT_URL}?token=${encodeURIComponent(sessionToken)}`)
+    .then(r=>r.json())
+    .then(data=>{
+      if(data && Array.isArray(data.parametros) && data.parametros.length){
+        state.parametros = data.parametros
+          .filter(row=>row.Persona)
+          .map(row=>({ persona: row.Persona, area: row.Area, correo: row.Correo }));
+      }
+    })
+    .catch(err=>{ console.warn('No se pudieron cargar los parámetros desde la Sheet:', err); });
+}
+
+// ---------------- LOGIN (solo admins, verificado por el backend) ----------------
+function initGSI(){
+  if(!window.google) return;
+  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onSignIn });
+  google.accounts.id.renderButton($('#gsiButton'), { theme:'outline', size:'large', text:'signin_with' });
+}
+window.addEventListener('load', initGSI);
+
+function onSignIn(response){
+  sessionToken = response.credential;
+  fetch(`${APPS_SCRIPT_URL}?token=${encodeURIComponent(sessionToken)}`)
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.error || data.admin !== true){
+        $('#loginScreen').style.display = 'none';
+        $('#deniedScreen').style.display = 'block';
+        $('#deniedMsg').textContent = data.error === 'no_autorizado'
+          ? 'Tu sesión no es válida o no pertenece a una cuenta autorizada.'
+          : 'Este panel es solo para el administrador. Tu cuenta no tiene ese acceso.';
+        return;
+      }
+      state.parametros = (data.parametros||[]).filter(r=>r.Persona).map(r=>({persona:r.Persona, area:r.Area, correo:r.Correo}));
+      $('#loginScreen').style.display = 'none';
+      $('#editorApp').style.display = 'block';
+      renderGrid();
+    })
+    .catch(()=>{
+      $('#loginError').style.display = 'block';
+      $('#loginError').textContent = 'No se pudo conectar con el backend. Intenta de nuevo.';
+    });
+}
+
+function getMundo(id){ return state.mundos.find(m=>m.id===id); }
+function getTask(m,id){ return m.tareas.find(t=>t.id===id); }
+function labelEstado(e){ return e==='pendiente' ? 'Pendiente' : e==='progreso' ? 'En curso' : 'Terminada'; }
+
+function isLocked(m,t){
+  if(!t.parentId || t.tipo!=='secuencial') return false;
+  const parent = getTask(m,t.parentId);
+  if(!parent) return false;
+  return parent.estado !== 'terminada' || isLocked(m,parent);
+}
+
+// ---------------- RENDER: GRID DE MUNDOS ----------------
+let vistaComoPersona = '';
+
+function renderVistaComoSelect(){
+  const sel = $('#vistaComoSelect');
+  const prev = vistaComoPersona;
+  sel.innerHTML = '<option value="">Vista completa (CFO)</option>' +
+    state.parametros.map(p=>`<option value="${p.persona}">${p.persona} — ${p.area}</option>`).join('');
+  sel.value = prev;
+}
+$('#vistaComoSelect').addEventListener('change', (e)=>{
+  vistaComoPersona = e.target.value;
+  renderGrid();
+});
+
+function renderGrid(){
+  renderVistaComoSelect();
+  const banner = $('#vistaComoBanner');
+  let mundosToShow = state.mundos;
+  if(vistaComoPersona){
+    mundosToShow = state.mundos.filter(m => m.tareas.some(t => t.personas.includes(vistaComoPersona)));
+    banner.style.display = 'block';
+    banner.textContent = `Viendo como: ${vistaComoPersona} — solo se listan los mundos donde tiene tareas asignadas. (Simulado en el navegador: el bloqueo real de acceso debe hacerse en el servidor, no aquí.)`;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  const grid = $('#mundoGrid');
+  grid.innerHTML = '';
+  mundosToShow.forEach(m=>{
+    const total = m.tareas.length;
+    const done = m.tareas.filter(t=>t.estado==='terminada').length;
+    const pct = total? Math.round(done/total*100) : 0;
+    const card = document.createElement('div');
+    card.className = 'mundo-card' + (m.cerrada?' closed':'');
+    card.innerHTML = `
+      ${m.cerrada?'<div class="closed-tag">Red cerrada</div>':''}
+      <div class="kicker">${m.personas.length} persona${m.personas.length!==1?'s':''} involucrada${m.personas.length!==1?'s':''}</div>
+      <h3>${m.nombre}</h3>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="meta"><span>${done} de ${total} tareas</span><span>${pct}%</span></div>
+    `;
+    card.addEventListener('click', ()=> openNetwork(m.id));
+    grid.appendChild(card);
+  });
+
+  const addCard = document.createElement('div');
+  addCard.className = 'mundo-card add-mundo';
+  addCard.innerHTML = `<div class="plus">+</div><div>Nuevo mundo</div>`;
+  addCard.addEventListener('click', openMundoModal);
+  if(!vistaComoPersona) grid.appendChild(addCard);
+}
+
+// ---------------- MODAL NUEVO MUNDO ----------------
+let mundoPeopleDraft = [];
+
+function openMundoModal(){
+  mundoPeopleDraft = [];
+  $('#mundoNameInput').value = '';
+  $('#personInput').value = '';
+  renderMundoPeopleChips();
+  $('#mundoOverlay').classList.add('active');
+  $('#mundoNameInput').focus();
+}
+
+function renderMundoPeopleChips(){
+  const row = $('#mundoPeopleChips');
+  row.innerHTML = '';
+  mundoPeopleDraft.forEach(p=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip on';
+    chip.innerHTML = `${p}<span class="chip-x">×</span>`;
+    chip.querySelector('.chip-x').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      mundoPeopleDraft = mundoPeopleDraft.filter(x=>x!==p);
+      renderMundoPeopleChips();
+    });
+    row.appendChild(chip);
+  });
+}
+
+function addPersonFromInput(){
+  const input = $('#personInput');
+  const name = input.value.trim();
+  if(name && !mundoPeopleDraft.includes(name)){
+    mundoPeopleDraft.push(name);
+    renderMundoPeopleChips();
+  }
+  input.value = '';
+  input.focus();
+}
+
+$('#addPersonBtn').addEventListener('click', addPersonFromInput);
+$('#personInput').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter' || e.key===','){ e.preventDefault(); addPersonFromInput(); }
+});
+$('#cancelMundoBtn').addEventListener('click', ()=> $('#mundoOverlay').classList.remove('active'));
+
+$('#saveMundoBtn').addEventListener('click', ()=>{
+  const nombre = $('#mundoNameInput').value.trim();
+  if(!nombre){ alert('Ponle un nombre al mundo.'); return; }
+  let baseId = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'mundo';
+  let id = baseId, i = 1;
+  while(state.mundos.some(m=>m.id===id)){ id = baseId+'-'+(++i); }
+  state.mundos.push({ id, nombre, personas:[...mundoPeopleDraft], cerrada:false, tareas:[] });
+  $('#mundoOverlay').classList.remove('active');
+  renderGrid();
+});
+
+// ---------------- RENDER: VISTA RED ----------------
+function openNetwork(id){
+  currentMundoId = id;
+  $('#viewMundos').style.display = 'none';
+  $('#viewNetwork').classList.add('active');
+  renderNetwork(true);
+}
+function closeNetwork(){
+  currentMundoId = null;
+  $('#viewNetwork').classList.remove('active');
+  $('#viewMundos').style.display = 'block';
+  renderGrid();
+}
+
+const BASE_R = 150, LEVEL_STEP = 125;
+
+function computeLayout(m){
+  const pos = {};
+  const top = m.tareas.filter(t=>!t.parentId);
+  const nTop = Math.max(top.length,1);
+  top.forEach((t,i)=>{
+    const angle = (2*Math.PI*i/nTop) - Math.PI/2;
+    pos[t.id] = {angle, radius: BASE_R};
+    layoutChildren(t.id, angle, BASE_R);
+  });
+  function layoutChildren(parentId, pAngle, pRadius){
+    const kids = m.tareas.filter(t=>t.parentId===parentId);
+    const seq = kids.filter(t=>t.tipo==='secuencial');
+    const par = kids.filter(t=>t.tipo==='paralelo');
+    seq.forEach((t,i)=>{
+      const spread = Math.min(0.45, (seq.length-1)*0.16);
+      const off = seq.length>1 ? (i/(seq.length-1)-0.5)*spread : 0;
+      const angle = pAngle+off, radius = pRadius+LEVEL_STEP;
+      pos[t.id] = {angle, radius};
+      layoutChildren(t.id, angle, radius);
+    });
+    par.forEach((t,i)=>{
+      const dir = i%2===0?1:-1;
+      const angle = pAngle + dir*(0.4+0.22*Math.floor(i/2));
+      const radius = pRadius;
+      pos[t.id] = {angle, radius};
+      layoutChildren(t.id, angle, radius);
+    });
+  }
+  return {pos, topCount: top.length};
+}
+
+function renderNetwork(recenter){
+  const m = getMundo(currentMundoId);
+  const total = m.tareas.length;
+  const done = m.tareas.filter(t=>t.estado==='terminada').length;
+
+  $('#netTitle').textContent = m.nombre;
+  $('#netSub').textContent = `${done} de ${total} tareas terminadas · ${m.personas.join(', ')}`;
+
+  const addBtn = $('#addTaskBtn');
+  const closeBtn = $('#closeNetBtn');
+  addBtn.disabled = m.cerrada;
+  closeBtn.disabled = m.cerrada || total===0 || done<total;
+  closeBtn.textContent = m.cerrada ? 'Red cerrada' : 'Cerrar red';
+
+  const {pos, topCount} = computeLayout(m);
+
+  // radio maximo considerando posiciones automaticas y manuales, para dimensionar el lienzo
+  let maxRadius = BASE_R;
+  Object.values(pos).forEach(p=>{ if(p.radius>maxRadius) maxRadius=p.radius; });
+  m.tareas.forEach(t=>{
+    if(t.customOffset){
+      const r = Math.hypot(t.customOffset.dx, t.customOffset.dy);
+      if(r>maxRadius) maxRadius=r;
+    }
+  });
+  const size = Math.max(700, 2*(maxRadius+170));
+  const cx = size/2, cy = size/2;
+
+  // posicion final de cada tarea (manual si existe, si no la calculada)
+  const finalPos = {};
+  m.tareas.forEach(t=>{
+    if(t.customOffset){
+      finalPos[t.id] = {x: cx+t.customOffset.dx, y: cy+t.customOffset.dy};
+    } else {
+      const p = pos[t.id];
+      finalPos[t.id] = {x: cx+p.radius*Math.cos(p.angle), y: cy+p.radius*Math.sin(p.angle)};
+    }
+  });
+  function anchorOf(t){ return t.parentId ? finalPos[t.parentId] : {x:cx,y:cy}; }
+
+  const childrenMap = {};
+  m.tareas.forEach(t=>{
+    if(t.parentId){ childrenMap[t.parentId] = childrenMap[t.parentId] || []; childrenMap[t.parentId].push(t.id); }
+  });
+
+  const inner = $('#canvasInner');
+  inner.style.width = size+'px';
+  inner.style.height = size+'px';
+  inner.querySelectorAll('.node,.hub,.add-node-btn,.mini-add').forEach(n=>n.remove());
+  const svg = $('#linesSvg');
+  svg.innerHTML = '';
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size);
+
+  const hub = document.createElement('div');
+  hub.className = 'hub' + (m.cerrada?' closed-hub':'');
+  hub.style.left = cx+'px'; hub.style.top = cy+'px';
+  hub.textContent = m.nombre;
+  inner.appendChild(hub);
+
+  const linesOwnedBy = {};
+
+  m.tareas.forEach(t=>{
+    const {x,y} = finalPos[t.id];
+    const locked = isLocked(m,t);
+    const a = anchorOf(t);
+
+    const lineEl = document.createElementNS('http://www.w3.org/2000/svg','line');
+    lineEl.setAttribute('x1',a.x); lineEl.setAttribute('y1',a.y);
+    lineEl.setAttribute('x2',x); lineEl.setAttribute('y2',y);
+    if(t.tipo==='paralelo'){
+      lineEl.setAttribute('stroke', '#b9b6a9');
+      lineEl.setAttribute('stroke-dasharray','3,4');
+    } else {
+      lineEl.setAttribute('stroke', t.estado==='terminada' ? '#9fb8a4' : (locked ? '#c9c6ba' : '#8a8878'));
+    }
+    lineEl.setAttribute('stroke-width','1.5');
+    svg.appendChild(lineEl);
+    linesOwnedBy[t.id] = lineEl;
+
+    const node = document.createElement('div');
+    node.className = 'node status-'+t.estado + (locked?' locked':'');
+    node.style.left = x+'px'; node.style.top = y+'px';
+    node.innerHTML = `
+      <div class="t-title">${t.titulo}</div>
+      <div class="t-people">${t.personas.join(', ')||'Sin asignar'}</div>
+      <div><span class="status-dot" style="background:${t.estado==='terminada'?'var(--green)':t.estado==='progreso'?'var(--amber)':'var(--red)'}"></span>${labelEstado(t.estado)}</div>
+      ${locked?'<div class="lock-tag">Bloqueada</div>':''}
+      ${t.customOffset?'<div class="moved-tag">Posición manual</div>':''}
+    `;
+    inner.appendChild(node);
+
+    const seqBtn = document.createElement('div');
+    seqBtn.className = 'mini-add seq';
+    seqBtn.textContent = '+';
+    seqBtn.title = 'Agregar tarea que depende de ésta';
+    seqBtn.style.left = (x+58)+'px'; seqBtn.style.top = (y+30)+'px';
+    seqBtn.addEventListener('click', (e)=>{ e.stopPropagation(); openTaskModal(null, t.id, 'secuencial'); });
+    inner.appendChild(seqBtn);
+
+    const parBtn = document.createElement('div');
+    parBtn.className = 'mini-add par';
+    parBtn.textContent = '+';
+    parBtn.title = 'Agregar rama paralela (independiente)';
+    parBtn.style.left = (x+58)+'px'; parBtn.style.top = (y-30)+'px';
+    parBtn.addEventListener('click', (e)=>{ e.stopPropagation(); openTaskModal(null, t.id, 'paralelo'); });
+    inner.appendChild(parBtn);
+
+    // ---- arrastrar para reordenar ----
+    let dragging=false, moved=false, startX=0, startY=0, curX=x, curY=y;
+    node.addEventListener('pointerdown', (e)=>{
+      dragging = true; moved = false;
+      startX = e.clientX; startY = e.clientY;
+      curX = parseFloat(node.style.left); curY = parseFloat(node.style.top);
+      node.classList.add('dragging');
+      node.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    node.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      const dx = e.clientX-startX, dy = e.clientY-startY;
+      if(Math.abs(dx)>4 || Math.abs(dy)>4) moved = true;
+      curX = parseFloat(node.style.left)===curX ? curX : curX;
+      const nx = curX===undefined ? x+dx : curX+dx;
+      const ny = curY===undefined ? y+dy : curY+dy;
+      const finalX = (parseFloat(node.dataset.origX ?? x)) + dx;
+      const finalY = (parseFloat(node.dataset.origY ?? y)) + dy;
+      node.style.left = finalX+'px'; node.style.top = finalY+'px';
+      seqBtn.style.left = (finalX+58)+'px'; seqBtn.style.top = (finalY+30)+'px';
+      parBtn.style.left = (finalX+58)+'px'; parBtn.style.top = (finalY-30)+'px';
+      lineEl.setAttribute('x2', finalX); lineEl.setAttribute('y2', finalY);
+      (childrenMap[t.id]||[]).forEach(cid=>{
+        const cl = linesOwnedBy[cid];
+        if(cl){ cl.setAttribute('x1', finalX); cl.setAttribute('y1', finalY); }
+      });
+      node.dataset.finalX = finalX; node.dataset.finalY = finalY;
+    });
+    node.addEventListener('pointerup', (e)=>{
+      if(!dragging) return;
+      dragging = false;
+      node.classList.remove('dragging');
+      node.releasePointerCapture(e.pointerId);
+      if(moved){
+        const finalX = parseFloat(node.dataset.finalX ?? x);
+        const finalY = parseFloat(node.dataset.finalY ?? y);
+        t.customOffset = {dx: finalX-cx, dy: finalY-cy};
+        const tag = node.querySelector('.moved-tag');
+        if(!tag){
+          const d = document.createElement('div');
+          d.className = 'moved-tag'; d.textContent = 'Posición manual';
+          node.appendChild(d);
+        }
+      } else {
+        openTaskModal(t.id);
+      }
+    });
+    node.dataset.origX = x; node.dataset.origY = y;
+  });
+
+  if(!m.cerrada){
+    const angle = (2*Math.PI*topCount/(topCount+1)) - Math.PI/2;
+    const ax = cx + BASE_R*Math.cos(angle), ay = cy + BASE_R*Math.sin(angle);
+    const addNode = document.createElement('div');
+    addNode.className = 'add-node-btn';
+    addNode.textContent = '+';
+    addNode.title = 'Agregar tarea principal a esta red';
+    addNode.style.left = ax+'px'; addNode.style.top = ay+'px';
+    addNode.addEventListener('click', ()=> openTaskModal(null, null, null));
+    inner.appendChild(addNode);
+
+    const dashLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+    dashLine.setAttribute('x1',cx); dashLine.setAttribute('y1',cy);
+    dashLine.setAttribute('x2',ax); dashLine.setAttribute('y2',ay);
+    dashLine.setAttribute('stroke','#D8B36B');
+    dashLine.setAttribute('stroke-width','1.2');
+    dashLine.setAttribute('stroke-dasharray','3,4');
+    svg.appendChild(dashLine);
+  }
+
+  if(recenter){
+    requestAnimationFrame(()=>{
+      const wrap = $('#canvasWrap');
+      wrap.scrollLeft = cx - wrap.clientWidth/2;
+      wrap.scrollTop = cy - wrap.clientHeight/2;
+    });
+  }
+}
+
+$('#addTaskBtn').addEventListener('click', ()=> openTaskModal(null, null, null));
+$('#backBtn').addEventListener('click', closeNetwork);
+$('#resetLayoutBtn').addEventListener('click', ()=>{
+  const m = getMundo(currentMundoId);
+  m.tareas.forEach(t=> t.customOffset = null);
+  renderNetwork(true);
+});
+
+// ---------------- MODAL TAREA ----------------
+function areaOf(persona){
+  const found = state.parametros.find(p=>p.persona===persona);
+  return found ? found.area : null;
+}
+function emailOf(persona){
+  const found = state.parametros.find(p=>p.persona===persona);
+  return found ? found.correo : null;
+}
+
+function renderPersonSelectModal(locked){
+  const select = $('#personSelectModal');
+  select.innerHTML = '<option value="">Elegir de parámetros…</option>' +
+    state.parametros
+      .filter(p=>!modalPeopleSelected.includes(p.persona))
+      .map(p=>`<option value="${p.persona}">${p.persona} — ${p.area}</option>`)
+      .join('');
+  select.disabled = locked;
+  select.onchange = ()=>{
+    if(select.value){
+      modalPeopleSelected.push(select.value);
+      renderPersonSelectModal(locked);
+      renderPeopleChipsModal(locked);
+    }
+  };
+}
+
+function renderPeopleChipsModal(locked){
+  const chipRow = $('#peopleChips');
+  chipRow.innerHTML = '';
+  modalPeopleSelected.forEach(p=>{
+    const area = areaOf(p);
+    const chip = document.createElement('div');
+    chip.className = 'chip on' + (locked?' disabled':'');
+    chip.innerHTML = `${p}${area?` <span style="opacity:.65;">(${area})</span>`:''}${locked?'':' <span class="chip-x">×</span>'}`;
+    if(!locked){
+      chip.querySelector('.chip-x').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        modalPeopleSelected = modalPeopleSelected.filter(x=>x!==p);
+        renderPersonSelectModal(locked);
+        renderPeopleChipsModal(locked);
+      });
+    }
+    chipRow.appendChild(chip);
+  });
+}
+
+function openTaskModal(taskId, newParentId, newTipo){
+  const m = getMundo(currentMundoId);
+  editingTaskId = taskId;
+  pendingNewTask = taskId ? null : {parentId:newParentId, tipo:newTipo};
+  const t = taskId ? getTask(m,taskId) : null;
+  const locked = t ? isLocked(m,t) : false;
+
+  $('#modalTitle').textContent = t ? 'Editar tarea' : 'Nueva tarea';
+
+  const relHolder = $('#relNote');
+  if(t && t.parentId){
+    const parent = getTask(m,t.parentId);
+    relHolder.textContent = t.tipo==='secuencial'
+      ? `Depende de: «${parent?parent.titulo:'—'}»`
+      : `Rama paralela relacionada con: «${parent?parent.titulo:'—'}»`;
+  } else if(!t && newParentId){
+    const parent = getTask(m,newParentId);
+    relHolder.textContent = newTipo==='secuencial'
+      ? `Nueva tarea que dependerá de: «${parent?parent.titulo:'—'}»`
+      : `Nueva rama paralela relacionada con: «${parent?parent.titulo:'—'}»`;
+  } else {
+    relHolder.textContent = 'Tarea principal del mundo';
+  }
+
+  $('#taskNameInput').value = t ? t.titulo : '';
+  $('#taskNameInput').disabled = locked;
+  modalPeopleSelected = t ? [...t.personas] : [];
+  originalPeopleSnapshot = [...modalPeopleSelected];
+  modalStatus = t ? t.estado : 'pendiente';
+  originalStatusSnapshot = modalStatus;
+
+  renderPersonSelectModal(locked);
+  renderPeopleChipsModal(locked);
+
+  renderStatusRow();
+  $('#statusRow').classList.toggle('disabled', locked);
+
+  const lockHolder = $('#lockNoteHolder');
+  lockHolder.innerHTML = locked
+    ? `<div class="lock-note">Esta tarea está bloqueada: no puede gestionarse hasta que la tarea de la que depende quede en estado "Terminada".</div>` : '';
+
+  $('#deleteTaskBtn').style.display = t ? 'inline' : 'none';
+  $('#saveTaskBtn').style.display = locked ? 'none' : 'inline-block';
+  $('#taskOverlay').classList.add('active');
+}
+
+function renderStatusRow(){
+  $$('.status-opt').forEach(el=>{
+    el.classList.remove('on-pendiente','on-progreso','on-terminada');
+    if(el.dataset.s === modalStatus){ el.classList.add('on-'+modalStatus); }
+  });
+}
+$$('.status-opt').forEach(el=>{
+  el.addEventListener('click', ()=>{ modalStatus = el.dataset.s; renderStatusRow(); });
+});
+
+$('#cancelModalBtn').addEventListener('click', ()=> $('#taskOverlay').classList.remove('active'));
+
+$('#saveTaskBtn').addEventListener('click', ()=>{
+  const m = getMundo(currentMundoId);
+  const nombre = $('#taskNameInput').value.trim();
+  if(!nombre){ alert('Ponle un nombre a la tarea.'); return; }
+  const newlyAdded = modalPeopleSelected.filter(p=>!originalPeopleSnapshot.includes(p));
+  const statusChanged = !!editingTaskId && originalStatusSnapshot !== modalStatus;
+  let taskId = editingTaskId;
+
+  if(editingTaskId){
+    const t = getTask(m,editingTaskId);
+    t.titulo = nombre; t.personas = [...modalPeopleSelected]; t.estado = modalStatus;
+  } else {
+    taskId = Math.max(0,...state.mundos.flatMap(mm=>mm.tareas.map(t=>t.id))) + 1;
+    m.tareas.push({
+      id:taskId, titulo:nombre, personas:[...modalPeopleSelected], estado:modalStatus,
+      parentId: pendingNewTask.parentId, tipo: pendingNewTask.tipo, customOffset:null
+    });
+  }
+
+  // -- persistencia + notificación real, si hay backend configurado --
+  callBackend('guardarTarea', { tarea:{ id:taskId, mundo:m.nombre, titulo:nombre, parentId: pendingNewTask?pendingNewTask.parentId:getTask(m,taskId).parentId, tipo: pendingNewTask?pendingNewTask.tipo:getTask(m,taskId).tipo, estado:modalStatus, personas:modalPeopleSelected, cerrada:m.cerrada } });
+  if(statusChanged){ callBackend('cambiarEstado', { id:taskId, nuevoEstado:modalStatus }); }
+
+  // -- registro y aviso simulado en el navegador (siempre, para que veas qué pasaría) --
+  const fecha = new Date().toLocaleString('es-CL');
+  const toastParts = [];
+
+  if(newlyAdded.length){
+    newlyAdded.forEach(p=>{
+      const correo = emailOf(p);
+      state.notificaciones.push({fecha, tipo:'Asignación', persona:p, correo: correo||'(sin correo @kitchencenter.cl registrado)', tarea:nombre, mundo:m.nombre, detalle:'—'});
+    });
+    const conCorreo = newlyAdded.filter(p=>emailOf(p));
+    const sinCorreo = newlyAdded.filter(p=>!emailOf(p));
+    if(conCorreo.length) toastParts.push(`Asignación → ${conCorreo.join(', ')}`);
+    if(sinCorreo.length) toastParts.push(`Sin correo KC: ${sinCorreo.join(', ')}`);
+  }
+
+  if(statusChanged){
+    const yaAvisados = new Set(newlyAdded);
+    const paraAvisar = modalPeopleSelected.filter(p=>!yaAvisados.has(p));
+    paraAvisar.forEach(p=>{
+      const correo = emailOf(p);
+      state.notificaciones.push({fecha, tipo:'Cambio de estado', persona:p, correo: correo||'(sin correo @kitchencenter.cl registrado)', tarea:nombre, mundo:m.nombre, detalle:labelEstado(modalStatus)});
+    });
+    if(paraAvisar.length) toastParts.push(`Cambio de estado (${labelEstado(modalStatus)}) → ${paraAvisar.join(', ')}`);
+  }
+
+  if(toastParts.length) showToast('Correo simulado — ' + toastParts.join(' · '));
+
+  $('#taskOverlay').classList.remove('active');
+  renderNetwork(false);
+});
+
+$('#deleteTaskBtn').addEventListener('click', ()=>{
+  const m = getMundo(currentMundoId);
+  const toDelete = new Set([editingTaskId]);
+  let changed = true;
+  while(changed){
+    changed = false;
+    m.tareas.forEach(t=>{
+      if(t.parentId && toDelete.has(t.parentId) && !toDelete.has(t.id)){ toDelete.add(t.id); changed = true; }
+    });
+  }
+  m.tareas = m.tareas.filter(t=>!toDelete.has(t.id));
+  $('#taskOverlay').classList.remove('active');
+  renderNetwork(false);
+});
+
+$('#closeNetBtn').addEventListener('click', ()=>{
+  const m = getMundo(currentMundoId);
+  const total = m.tareas.length, done = m.tareas.filter(t=>t.estado==='terminada').length;
+  if(total===0 || done<total) return;
+  m.cerrada = true;
+  renderNetwork(false);
+});
+
+$('#navMundos').addEventListener('click', ()=>{
+  $('#navMundos').classList.add('active');
+  $('#navResumen').classList.remove('active');
+  $('#navParametros').classList.remove('active');
+  $('#viewResumen').classList.remove('active');
+  $('#viewParametros').classList.remove('active');
+  if(currentMundoId){ $('#viewNetwork').classList.remove('active'); currentMundoId=null; }
+  $('#viewMundos').style.display = 'block';
+  renderGrid();
+});
+$('#navResumen').addEventListener('click', ()=>{
+  $('#navResumen').classList.add('active');
+  $('#navMundos').classList.remove('active');
+  $('#navParametros').classList.remove('active');
+  $('#viewMundos').style.display = 'none';
+  $('#viewNetwork').classList.remove('active');
+  $('#viewParametros').classList.remove('active');
+  $('#viewResumen').classList.add('active');
+  renderSummary('mundo');
+});
+$('#navParametros').addEventListener('click', ()=>{
+  $('#navParametros').classList.add('active');
+  $('#navMundos').classList.remove('active');
+  $('#navResumen').classList.remove('active');
+  $('#viewMundos').style.display = 'none';
+  $('#viewNetwork').classList.remove('active');
+  $('#viewResumen').classList.remove('active');
+  $('#viewParametros').classList.add('active');
+  renderParametros();
+});
+
+// ---------------- PARAMETROS (persona + area + correo) ----------------
+function renderParametros(){
+  const body = $('#paramTableBody');
+  body.innerHTML = state.parametros.map((p,i)=>`
+    <tr>
+      <td>${p.persona}</td>
+      <td>${p.area}</td>
+      <td>${p.correo}</td>
+      <td><button class="link-danger" data-i="${i}">Eliminar</button></td>
+    </tr>
+  `).join('');
+  body.querySelectorAll('.link-danger').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const i = parseInt(btn.dataset.i);
+      const persona = state.parametros[i].persona;
+      state.parametros.splice(i,1);
+      renderParametros();
+      callBackend('eliminarParametro', { persona }).then(res=>{
+        if(res && res.ok===false) showToast('No se pudo eliminar en la Sheet: ' + (res.error||'error'));
+      });
+    });
+  });
+  renderNotificaciones();
+}
+function renderNotificaciones(){
+  const body = $('#notifTableBody');
+  if(!state.notificaciones.length){
+    body.innerHTML = `<tr><td colspan="7" style="color:#8a8878;font-style:italic;">Todavía no hay notificaciones simuladas.</td></tr>`;
+    return;
+  }
+  body.innerHTML = [...state.notificaciones].reverse().map(n=>`
+    <tr><td>${n.fecha}</td><td>${n.tipo}</td><td>${n.persona}</td><td>${n.correo}</td><td>${n.tarea}</td><td>${n.mundo}</td><td>${n.detalle}</td></tr>
+  `).join('');
+}
+$('#addParamBtn').addEventListener('click', ()=>{
+  const persona = $('#paramPersonaInput').value.trim();
+  const area = $('#paramAreaInput').value.trim();
+  const correo = $('#paramCorreoInput').value.trim().toLowerCase();
+  if(!persona || !area || !correo){ alert('Completa persona, área y correo.'); return; }
+  if(!correo.endsWith(KC_DOMAIN)){
+    alert(`Solo se aceptan correos con dominio ${KC_DOMAIN} (cuentas KC).`); return;
+  }
+  if(state.parametros.some(p=>p.persona.toLowerCase()===persona.toLowerCase())){
+    alert('Esa persona ya está en la lista de parámetros.'); return;
+  }
+  state.parametros.push({persona, area, correo});
+  $('#paramPersonaInput').value=''; $('#paramAreaInput').value=''; $('#paramCorreoInput').value='';
+  renderParametros();
+  callBackend('guardarParametro', { parametro:{persona, area, correo} }).then(res=>{
+    if(res && res.ok===false) showToast('No se pudo guardar en la Sheet: ' + (res.error||'error'));
+  });
+});
+
+// ---------------- TOAST ----------------
+function showToast(msg){
+  let toast = $('#kcToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'kcToast';
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--charcoal);color:var(--cream);padding:12px 18px;border-radius:3px;font-size:13.5px;max-width:320px;z-index:50;box-shadow:0 4px 14px rgba(0,0,0,.25);opacity:0;transition:opacity .25s ease;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  requestAnimationFrame(()=>{ toast.style.opacity = '1'; });
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ toast.style.opacity='0'; }, 4200);
+}
+
+$$('.sub-tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $$('.sub-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderSummary(btn.dataset.tab);
+  });
+});
+
+function tipoLabel(t){
+  if(!t.parentId) return 'Principal';
+  return t.tipo==='secuencial' ? 'Secuencial' : 'Paralela';
+}
+
+function renderSummary(tab){
+  const el = $('#summaryContent');
+  if(tab==='mundo'){
+    let rows = state.mundos.map(m=>{
+      const total = m.tareas.length, done = m.tareas.filter(t=>t.estado==='terminada').length;
+      return `<tr>
+        <td>${m.nombre}</td><td>${total}</td><td>${done}</td><td>${total-done}</td>
+        <td>${m.cerrada ? '<span class="status-badge b-terminada">Cerrada</span>' : '<span class="status-badge b-progreso">Abierta</span>'}</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `<table><thead><tr><th>Mundo</th><th>Tareas</th><th>Terminadas</th><th>Pendientes</th><th>Estado red</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  if(tab==='tarea'){
+    let rows = [];
+    state.mundos.forEach(m=>{
+      m.tareas.forEach(t=>{
+        const parent = t.parentId ? getTask(m,t.parentId) : null;
+        const locked = isLocked(m,t);
+        rows.push(`<tr>
+          <td>${t.titulo}</td>
+          <td>${m.nombre}</td>
+          <td>${tipoLabel(t)}</td>
+          <td>${parent ? parent.titulo : '—'}</td>
+          <td>${t.personas.join(', ')||'—'}</td>
+          <td>${locked ? '<span class="status-badge b-locked">Bloqueada</span>' : `<span class="status-badge b-${t.estado}">${labelEstado(t.estado)}</span>`}</td>
+        </tr>`);
+      });
+    });
+    el.innerHTML = `<table><thead><tr><th>Tarea</th><th>Mundo</th><th>Tipo</th><th>Depende de</th><th>Involucra a</th><th>Estado</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  }
+  if(tab==='persona'){
+    const map = {};
+    state.mundos.forEach(m=>{
+      m.tareas.forEach(t=>{
+        t.personas.forEach(p=>{
+          if(!map[p]) map[p] = {total:0,done:0,mundos:new Set()};
+          map[p].total++;
+          if(t.estado==='terminada') map[p].done++;
+          map[p].mundos.add(m.nombre);
+        });
+      });
+    });
+    let rows = Object.entries(map).map(([p,d])=>`<tr>
+      <td>${p}</td><td>${areaOf(p)||'—'}</td><td>${[...d.mundos].join(', ')}</td><td>${d.total}</td><td>${d.done}</td><td>${d.total-d.done}</td>
+    </tr>`).join('');
+    el.innerHTML = `<table><thead><tr><th>Persona</th><th>Área natural</th><th>Mundos donde participa</th><th>Tareas totales</th><th>Terminadas</th><th>Pendientes</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+}
+
+window.addEventListener('resize', ()=>{ if(currentMundoId) renderNetwork(true); });
+</script>
+</body>
+</html>
