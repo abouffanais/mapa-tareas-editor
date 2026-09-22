@@ -484,8 +484,9 @@ function loadParametrosFromBackend(){
 // ---------------- LOGIN (solo admins, verificado por el backend) ----------------
 function initGSI(){
   if(!window.google) return;
-  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onSignIn });
+  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onSignIn, auto_select: true });
   google.accounts.id.renderButton($('#gsiButton'), { theme:'outline', size:'large', text:'signin_with' });
+  google.accounts.id.prompt(); // intenta iniciar sesión sola si el navegador ya reconoce tu cuenta de Google
 }
 window.addEventListener('load', initGSI);
 
@@ -503,6 +504,31 @@ function onSignIn(response){
         return;
       }
       state.parametros = (data.parametros||[]).filter(r=>r.Persona).map(r=>({persona:r.Persona, area:r.Area, correo:r.Correo}));
+
+      if(Array.isArray(data.mundos) && data.mundos.length){
+        // hay mundos reales en la Sheet -> reconstruir desde ahí, ignorando los de ejemplo
+        state.mundos = data.mundos.map(mRow=>({
+          id: mRow.Id,
+          nombre: mRow.Nombre,
+          personas: String(mRow.Personas||'').split(',').map(s=>s.trim()).filter(Boolean),
+          cerrada: mRow.Cerrada === true || mRow.Cerrada === 'TRUE' || mRow.Cerrada === 'true',
+          tareas: (data.tareas||[]).filter(t=>t.Mundo===mRow.Nombre).map(t=>({
+            id: Number(t.Id),
+            titulo: t.Titulo,
+            personas: t.Personas||[],
+            estado: t.Estado,
+            parentId: t.ParentId ? Number(t.ParentId) : null,
+            tipo: t.Tipo || null,
+            customOffset: null
+          }))
+        }));
+      } else {
+        // primera vez: no hay pestaña "Mundos" con datos aún -> siembra los de ejemplo en la Sheet
+        state.mundos.forEach(m=>{
+          callBackend('guardarMundo', { mundo:{ id:m.id, nombre:m.nombre, personas:m.personas, cerrada:m.cerrada } });
+        });
+      }
+
       $('#loginScreen').style.display = 'none';
       $('#editorApp').style.display = 'block';
       renderGrid();
@@ -629,6 +655,7 @@ $('#saveMundoBtn').addEventListener('click', ()=>{
   let id = baseId, i = 1;
   while(state.mundos.some(m=>m.id===id)){ id = baseId+'-'+(++i); }
   state.mundos.push({ id, nombre, personas:[...mundoPeopleDraft], cerrada:false, tareas:[] });
+  callBackend('guardarMundo', { mundo:{ id, nombre, personas:[...mundoPeopleDraft], cerrada:false } });
   $('#mundoOverlay').classList.remove('active');
   renderGrid();
 });
@@ -1046,6 +1073,7 @@ $('#deleteTaskBtn').addEventListener('click', ()=>{
     });
   }
   m.tareas = m.tareas.filter(t=>!toDelete.has(t.id));
+  callBackend('eliminarTarea', { id: editingTaskId });
   $('#taskOverlay').classList.remove('active');
   renderNetwork(false);
 });
@@ -1055,6 +1083,7 @@ $('#closeNetBtn').addEventListener('click', ()=>{
   const total = m.tareas.length, done = m.tareas.filter(t=>t.estado==='terminada').length;
   if(total===0 || done<total) return;
   m.cerrada = true;
+  callBackend('guardarMundo', { mundo:{ id:m.id, nombre:m.nombre, personas:m.personas, cerrada:true } });
   renderNetwork(false);
 });
 
