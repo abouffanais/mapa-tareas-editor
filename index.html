@@ -229,6 +229,7 @@
       <button id="navMundos" class="active">Mundos</button>
       <button id="navResumen">Resumen</button>
       <button id="navParametros">Parámetros</button>
+      <button id="logoutBtnEditor" title="Forzar cierre de sesión">Cerrar sesión</button>
     </div>
   </div>
 
@@ -482,20 +483,60 @@ function loadParametrosFromBackend(){
 }
 
 // ---------------- LOGIN (solo admins, verificado por el backend) ----------------
+const TOKEN_KEY = 'kc_editor_token';
+const TOKEN_EXP_KEY = 'kc_editor_token_exp';
+
+function decodeJwtExpMs(token){
+  try{
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    return payload.exp ? payload.exp*1000 : null;
+  }catch(e){ return null; }
+}
+
 function initGSI(){
   if(!window.google) return;
   google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onSignIn, auto_select: true });
   google.accounts.id.renderButton($('#gsiButton'), { theme:'outline', size:'large', text:'signin_with' });
-  google.accounts.id.prompt(); // intenta iniciar sesión sola si el navegador ya reconoce tu cuenta de Google
+  google.accounts.id.prompt();
 }
-window.addEventListener('load', initGSI);
+
+window.addEventListener('load', ()=>{
+  const stored = localStorage.getItem(TOKEN_KEY);
+  const exp = parseInt(localStorage.getItem(TOKEN_EXP_KEY)||'0', 10);
+  if(stored && exp && Date.now() < exp - 60000){
+    // sesión guardada y todavía vigente -> entra directo, sin pasar por Google
+    sessionToken = stored;
+    verificarYEntrar();
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXP_KEY);
+    initGSI();
+  }
+});
+
+$('#logoutBtnEditor').addEventListener('click', ()=>{
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_EXP_KEY);
+  sessionToken = null;
+  if(window.google) google.accounts.id.disableAutoSelect();
+  location.reload();
+});
 
 function onSignIn(response){
   sessionToken = response.credential;
+  const exp = decodeJwtExpMs(sessionToken);
+  localStorage.setItem(TOKEN_KEY, sessionToken);
+  if(exp) localStorage.setItem(TOKEN_EXP_KEY, String(exp));
+  verificarYEntrar();
+}
+
+function verificarYEntrar(){
   fetch(`${APPS_SCRIPT_URL}?token=${encodeURIComponent(sessionToken)}`)
     .then(r=>r.json())
     .then(data=>{
       if(data.error || data.admin !== true){
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(TOKEN_EXP_KEY);
         $('#loginScreen').style.display = 'none';
         $('#deniedScreen').style.display = 'block';
         $('#deniedMsg').textContent = data.error === 'no_autorizado'
@@ -517,7 +558,7 @@ function onSignIn(response){
             titulo: t.Titulo,
             personas: t.Personas||[],
             estado: t.Estado,
-            parentId: t.ParentId ? Number(t.ParentId) : null,
+            parentId: (()=>{ const n = Number(t.ParentId); return (t.ParentId !== '' && t.ParentId !== null && t.ParentId !== undefined && !isNaN(n) && n !== 0) ? n : null; })(),
             tipo: t.Tipo || null,
             customOffset: null
           }))
