@@ -141,6 +141,23 @@
   .lock-tag{font-size:10.5px;color:var(--muted);margin-top:4px;font-style:italic;}
   .moved-tag{font-size:10px;color:var(--gold-soft);margin-top:3px;}
 
+  .node.age-verde{border-color:var(--green);border-width:2px;}
+  .node.age-amarillo{border-color:var(--amber);border-width:2px;}
+  .node.age-rojo{border-color:var(--red);border-width:2px;}
+  .age-tag{font-size:10.5px;margin-top:4px;font-weight:600;}
+  .age-tag.age-verde{color:var(--green);}
+  .age-tag.age-amarillo{color:var(--amber);}
+  .age-tag.age-rojo{color:var(--red);}
+  .urgent-tag{
+    display:inline-block;font-size:10px;font-weight:700;letter-spacing:.3px;
+    color:#fff;background:var(--red);padding:2px 7px;border-radius:9px;margin-bottom:5px;
+  }
+  .urgent-toggle{
+    display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:8px 14px;
+    border:1px solid var(--line);border-radius:2px;cursor:pointer;background:#fff;color:#6a675d;
+  }
+  .urgent-toggle.on{background:var(--red-soft);border-color:var(--red);color:var(--red);font-weight:600;}
+
   .mini-add{
     position:absolute;width:22px;height:22px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
@@ -353,6 +370,9 @@
         <div class="status-opt" data-s="terminada">Terminada</div>
       </div>
     </div>
+    <div class="field">
+      <div class="urgent-toggle" id="urgentToggle">🔴 Marcar como urgente</div>
+    </div>
     <div class="modal-actions">
       <button class="link-danger" id="deleteTaskBtn">Eliminar tarea</button>
       <div style="display:flex;gap:8px;">
@@ -444,6 +464,7 @@ let modalPeopleSelected = [];
 let originalPeopleSnapshot = [];
 let originalStatusSnapshot = 'pendiente';
 let modalStatus = 'pendiente';
+let modalUrgente = false;
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
@@ -570,6 +591,8 @@ function verificarYEntrar(){
             estado: t.Estado,
             parentId: calcParentId(t.ParentId),
             tipo: t.Tipo || null,
+            fechaCreacion: t.FechaCreacion || null,
+            urgente: t.Urgente === true || t.Urgente === 'TRUE' || t.Urgente === 'true',
             customOffset: null
           }))
         }));
@@ -600,6 +623,16 @@ function isLocked(m,t){
   const parent = getTask(m,t.parentId);
   if(!parent) return false;
   return parent.estado !== 'terminada' || isLocked(m,parent);
+}
+
+// ---------------- ANTIGÜEDAD DE LA TAREA ----------------
+function edadCategoria(fechaCreacion){
+  if(!fechaCreacion) return null;
+  const creado = new Date(fechaCreacion);
+  if(isNaN(creado.getTime())) return null;
+  const dias = Math.floor((Date.now() - creado.getTime()) / 86400000);
+  const color = dias <= 3 ? 'verde' : dias <= 7 ? 'amarillo' : 'rojo';
+  return { dias, color };
 }
 
 // ---------------- RENDER: GRID DE MUNDOS ----------------
@@ -840,12 +873,15 @@ function renderNetwork(recenter){
     linesOwnedBy[t.id] = lineEl;
 
     const node = document.createElement('div');
-    node.className = 'node status-'+t.estado + (locked?' locked':'');
+    const edad = t.estado !== 'terminada' ? edadCategoria(t.fechaCreacion) : null;
+    node.className = 'node status-'+t.estado + (locked?' locked':'') + (edad?' age-'+edad.color:'');
     node.style.left = x+'px'; node.style.top = y+'px';
     node.innerHTML = `
+      ${t.urgente?'<div class="urgent-tag">URGENTE</div>':''}
       <div class="t-title">${t.titulo}</div>
       <div class="t-people">${t.personas.join(', ')||'Sin asignar'}</div>
       <div><span class="status-dot" style="background:${t.estado==='terminada'?'var(--green)':t.estado==='progreso'?'var(--amber)':'var(--red)'}"></span>${labelEstado(t.estado)}</div>
+      ${edad?`<div class="age-tag age-${edad.color}">${edad.dias} día${edad.dias!==1?'s':''}</div>`:''}
       ${locked?'<div class="lock-tag">Bloqueada</div>':''}
       ${t.customOffset?'<div class="moved-tag">Posición manual</div>':''}
     `;
@@ -1032,12 +1068,14 @@ function openTaskModal(taskId, newParentId, newTipo){
   originalPeopleSnapshot = [...modalPeopleSelected];
   modalStatus = t ? t.estado : 'pendiente';
   originalStatusSnapshot = modalStatus;
+  modalUrgente = t ? !!t.urgente : false;
 
   renderPersonSelectModal(locked);
   renderPeopleChipsModal(locked);
 
   renderStatusRow();
   $('#statusRow').classList.toggle('disabled', locked);
+  renderUrgentToggle(locked);
 
   const lockHolder = $('#lockNoteHolder');
   lockHolder.innerHTML = locked
@@ -1058,6 +1096,17 @@ $$('.status-opt').forEach(el=>{
   el.addEventListener('click', ()=>{ modalStatus = el.dataset.s; renderStatusRow(); });
 });
 
+function renderUrgentToggle(locked){
+  const el = $('#urgentToggle');
+  el.classList.toggle('on', modalUrgente);
+  el.style.pointerEvents = locked ? 'none' : 'auto';
+  el.style.opacity = locked ? '.5' : '1';
+}
+$('#urgentToggle').addEventListener('click', ()=>{
+  modalUrgente = !modalUrgente;
+  renderUrgentToggle(false);
+});
+
 $('#cancelModalBtn').addEventListener('click', ()=> $('#taskOverlay').classList.remove('active'));
 
 $('#saveTaskBtn').addEventListener('click', ()=>{
@@ -1070,17 +1119,18 @@ $('#saveTaskBtn').addEventListener('click', ()=>{
 
   if(editingTaskId){
     const t = getTask(m,editingTaskId);
-    t.titulo = nombre; t.personas = [...modalPeopleSelected]; t.estado = modalStatus;
+    t.titulo = nombre; t.personas = [...modalPeopleSelected]; t.estado = modalStatus; t.urgente = modalUrgente;
   } else {
     taskId = Math.max(0,...state.mundos.flatMap(mm=>mm.tareas.map(t=>t.id))) + 1;
     m.tareas.push({
       id:taskId, titulo:nombre, personas:[...modalPeopleSelected], estado:modalStatus,
-      parentId: pendingNewTask.parentId, tipo: pendingNewTask.tipo, customOffset:null
+      parentId: pendingNewTask.parentId, tipo: pendingNewTask.tipo, customOffset:null,
+      urgente: modalUrgente, fechaCreacion: new Date().toISOString()
     });
   }
 
   // -- persistencia + notificación real, si hay backend configurado --
-  callBackend('guardarTarea', { tarea:{ id:taskId, mundo:m.nombre, titulo:nombre, parentId: pendingNewTask?pendingNewTask.parentId:getTask(m,taskId).parentId, tipo: pendingNewTask?pendingNewTask.tipo:getTask(m,taskId).tipo, estado:modalStatus, personas:modalPeopleSelected, cerrada:m.cerrada } });
+  callBackend('guardarTarea', { tarea:{ id:taskId, mundo:m.nombre, titulo:nombre, parentId: pendingNewTask?pendingNewTask.parentId:getTask(m,taskId).parentId, tipo: pendingNewTask?pendingNewTask.tipo:getTask(m,taskId).tipo, estado:modalStatus, personas:modalPeopleSelected, cerrada:m.cerrada, urgente:modalUrgente } });
   if(statusChanged){ callBackend('cambiarEstado', { id:taskId, nuevoEstado:modalStatus }); }
 
   // -- registro y aviso simulado en el navegador (siempre, para que veas qué pasaría) --
@@ -1269,17 +1319,19 @@ function renderSummary(tab){
       m.tareas.forEach(t=>{
         const parent = t.parentId ? getTask(m,t.parentId) : null;
         const locked = isLocked(m,t);
+        const edad = t.estado !== 'terminada' ? edadCategoria(t.fechaCreacion) : null;
         rows.push(`<tr>
-          <td>${t.titulo}</td>
+          <td>${t.urgente?'<span class="urgent-tag" style="margin-right:6px;">URGENTE</span>':''}${t.titulo}</td>
           <td>${m.nombre}</td>
           <td>${tipoLabel(t)}</td>
           <td>${parent ? parent.titulo : '—'}</td>
           <td>${t.personas.join(', ')||'—'}</td>
           <td>${locked ? '<span class="status-badge b-locked">Bloqueada</span>' : `<span class="status-badge b-${t.estado}">${labelEstado(t.estado)}</span>`}</td>
+          <td>${edad?`<span class="age-tag age-${edad.color}">${edad.dias} día${edad.dias!==1?'s':''}</span>`:'—'}</td>
         </tr>`);
       });
     });
-    el.innerHTML = `<table><thead><tr><th>Tarea</th><th>Mundo</th><th>Tipo</th><th>Depende de</th><th>Involucra a</th><th>Estado</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+    el.innerHTML = `<table><thead><tr><th>Tarea</th><th>Mundo</th><th>Tipo</th><th>Depende de</th><th>Involucra a</th><th>Estado</th><th>Antigüedad</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
   }
   if(tab==='persona'){
     const map = {};
