@@ -739,8 +739,8 @@ function computeLayout(m){
   });
   function layoutChildren(parentId, pAngle, pRadius){
     const kids = m.tareas.filter(t=>t.parentId===parentId);
-    const seq = kids.filter(t=>t.tipo==='secuencial');
     const par = kids.filter(t=>t.tipo==='paralelo');
+    const seq = kids.filter(t=>t.tipo!=='paralelo'); // todo lo que no sea explícitamente paralelo, se trata como secuencial (nunca desaparece del mapa)
     seq.forEach((t,i)=>{
       const spread = Math.min(0.45, (seq.length-1)*0.16);
       const off = seq.length>1 ? (i/(seq.length-1)-0.5)*spread : 0;
