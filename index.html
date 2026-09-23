@@ -546,6 +546,9 @@ function verificarYEntrar(){
       }
       state.parametros = (data.parametros||[]).filter(r=>r.Persona).map(r=>({persona:r.Persona, area:r.Area, correo:r.Correo}));
 
+      console.log('[DEBUG] data.mundos crudo:', JSON.stringify(data.mundos));
+      console.log('[DEBUG] data.tareas de Contabilidad crudo:', JSON.stringify((data.tareas||[]).filter(t=>t.Mundo==='Contabilidad')));
+
       if(Array.isArray(data.mundos) && data.mundos.length){
         // hay mundos reales en la Sheet -> reconstruir desde ahí, ignorando los de ejemplo
         state.mundos = data.mundos.map(mRow=>({
@@ -563,6 +566,7 @@ function verificarYEntrar(){
             customOffset: null
           }))
         }));
+        console.log('[DEBUG] state.mundos reconstruido:', JSON.stringify(state.mundos.find(m=>m.nombre==='Contabilidad')));
       } else {
         // primera vez: no hay pestaña "Mundos" con datos aún -> siembra los de ejemplo en la Sheet
         state.mundos.forEach(m=>{
