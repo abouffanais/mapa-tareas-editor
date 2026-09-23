@@ -522,6 +522,13 @@ $('#logoutBtnEditor').addEventListener('click', ()=>{
   location.reload();
 });
 
+function calcParentId(raw){
+  const n = Number(raw);
+  const result = (raw !== '' && raw !== null && raw !== undefined && !isNaN(n) && n !== 0) ? n : null;
+  console.log('[DEBUG] calcParentId — raw:', JSON.stringify(raw), '| typeof:', typeof raw, '| resultado:', result);
+  return result;
+}
+
 function onSignIn(response){
   sessionToken = response.credential;
   const exp = decodeJwtExpMs(sessionToken);
@@ -561,7 +568,7 @@ function verificarYEntrar(){
             titulo: t.Titulo,
             personas: t.Personas||[],
             estado: t.Estado,
-            parentId: (()=>{ const n = Number(t.ParentId); return (t.ParentId !== '' && t.ParentId !== null && t.ParentId !== undefined && !isNaN(n) && n !== 0) ? n : null; })(),
+            parentId: calcParentId(t.ParentId),
             tipo: t.Tipo || null,
             customOffset: null
           }))
